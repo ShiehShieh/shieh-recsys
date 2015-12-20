@@ -1,0 +1,8 @@
+*.png
+*.swp
+*.pyc
+*.zip
+python-recsys/
+recommender/
+.DS_Store
+*.pdf
