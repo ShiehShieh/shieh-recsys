@@ -6,8 +6,14 @@ import numpy as np
 import pandas as pd
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
+from datetime import datetime
 from sklearn.manifold import Isomap
 from sklearn.decomposition import PCA
+cimport numpy as np
+
+
+DTYPE = np.int
+ctypedef np.int_t DTYPE_t
 
 
 def load_data(fn, ftype):
@@ -23,23 +29,56 @@ def load_data(fn, ftype):
     return res
 
 
-def transform_data(moviesf, ratingf, usersf, splitit=False):
+def split2itembins(rating, numbin):
+    """TODO: Docstring for split2bins.
+    :returns: TODO
+
+    """
+    sorted_rating = rating.sort_values(by='Timestamp')
+    rates = sorted_rating.Rating.values
+    total = rates.shape[0]
+    step = total/numbin
+    Bins = [(datetime.fromtimestamp(sorted_rating.Timestamp.iloc[i]).date(),
+             sorted_rating.iloc[i:i+step].groupby('MovieID').Rating.mean(),
+             np.mean(rates[i:i+step]))
+            for i in range(0, total, step)]
+    return Bins
+
+
+def find_bin(list Bins, t):
+    cdef:
+        Py_ssize_t idx
+    for idx in range(len(Bins)-1):
+        if t >= Bins[idx][0] and t < Bins[idx+1][0]:
+            return Bins[idx]
+    return Bins[-1]
+
+
+def transform_data(moviesf, ratingf, usersf, splitit=False, numbin=0):
     """TODO: Docstring for transform_data.
     :returns: TODO
 
     """
-    movies = load_data(moviesf, 'movies').values
-    users = load_data(usersf, 'users').values
+    cdef:
+        double sep
+        DTYPE_t uid
+        Py_ssize_t idx
+        np.ndarray[DTYPE_t, ndim=1] rate
+        np.ndarray[DTYPE_t, ndim=2] X_train, X_test
+
+    movies = load_data(moviesf, 'movies').MovieID.values
+    users = load_data(usersf, 'users').UserID.values
     rating = load_data(ratingf, 'rating')
 
     # TODO missing values
-    X_train = np.full((users[-1][0], movies[-1][0],), 0, dtype=np.int)
+    X_train = np.full((users[-1], movies[-1],), 0, dtype=DTYPE)
     X_test = None
 
     if splitit:
-        X_test = np.full((users[-1][0], movies[-1][0],), 0, dtype=np.int)
-        for uid in users[:,0]:
-            rates = rating[rating['UserID']==uid].sort_values(by='Timestamp')
+        X_test = np.full((users[-1], movies[-1],), 0, dtype=DTYPE)
+        rating.sort_values(by=['UserID', 'Timestamp'], inplace=True)
+        for uid in users:
+            rates = rating.loc[rating.UserID==uid,:]
             sep = rates.shape[0]*0.9
             for idx, rate in enumerate(rates.values):
                 if idx <= sep:
@@ -50,7 +89,13 @@ def transform_data(moviesf, ratingf, usersf, splitit=False):
         for rate in rating.values:
             X_train[rate[0]-1][rate[1]-1] = rate[2]
 
-    return X_train, X_test
+    if numbin:
+        Bins = split2itembins(rating, numbin)
+        rating.Timestamp = pd.to_datetime(rating.Timestamp, unit='s').dt.date
+    else:
+        Bins = None
+
+    return X_train, X_test, rating, Bins
 
 
 def plot_2d(X, Y, C):

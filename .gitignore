@@ -4,5 +4,6 @@
 *.zip
 python-recsys/
 recommender/
+build/
 .DS_Store
 *.pdf

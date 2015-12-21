@@ -7,7 +7,7 @@ import math
 import argparse
 import numpy as np
 from sklearn.metrics.pairwise import pairwise_distances
-from utilities import *
+from shieh_utils import *
 
 
 VERSION = 'v4.0.0'
@@ -137,7 +137,7 @@ def main():
     """
     args = get_args()
     if args.forhomework:
-        X, _ = transform_data(args.moviesf, args.ratingf, args.usersf)
+        X, _, _, _, _ = transform_data(args.moviesf, args.ratingf, args.usersf)
     else:
         X = load_data(args.fn, 'rating').values
 

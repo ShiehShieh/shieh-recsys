@@ -8,10 +8,13 @@ import argparse
 import operator
 import numpy as np
 from math import sqrt
+from datetime import datetime
 from scipy.linalg import svd
 from scipy.stats import pearsonr
 from sklearn.metrics import mean_squared_error
-from utilities import *
+from shieh_utils import *
+# from shieh_kmeans import kmeans
+# from shieh_svd import dim_reduction_svd
 
 
 VERSION = 'v4.0.0'
@@ -31,8 +34,14 @@ def get_args():
                         help='Preserved Dimention.', dest='d')
     parser.add_argument('-v', action='store', type=float, default=None,
                         help='Preserved Variance.', dest='v')
-    parser.add_argument('--cfk', action='store', type=int, default=10,
+    parser.add_argument('-k', action='store', type=int, default=20,
+                        help='The number of cluster.', dest='k')
+    parser.add_argument('--cfk', action='store', type=int, default=20,
                         help='K nearest neighbors.', dest='cfk')
+    parser.add_argument('--numbin', action='store', type=int, default=None,
+                        help='The number of Item Bins.', dest='numbin')
+    parser.add_argument('--alg', action='store', default='baseline',
+                        help='The name of the algorithm.', dest='alg')
     parser.add_argument('--fn', action='store',
                         help='The name of the file.', dest='fn')
     parser.add_argument('--movies', action='store',
@@ -41,6 +50,10 @@ def get_args():
                         help='The name of the rating file.', dest='ratingf')
     parser.add_argument('--users', action='store',
                         help='The name of the users file.', dest='usersf')
+    parser.add_argument('--user2user', action='store_false',
+                        help='Use user-user.', dest='item2item')
+    parser.add_argument('--testit', action='store_true',
+                        help='Testing model.', dest='testit')
     parser.add_argument('--forhomework', action='store_true',
                         help='Homework model.', dest='forhomework')
 
@@ -75,7 +88,7 @@ def cal_rmse(y_actual, y_pred):
     return rmse
 
 
-def get_sims(idx, ref, X, k, item2item=True):
+def get_sims(user, item, X, k, item2item=True):
     """TODO: Docstring for get_sims.
     :returns: TODO
 
@@ -83,37 +96,170 @@ def get_sims(idx, ref, X, k, item2item=True):
     # TODO itself
     if item2item:
         x = X.T
-        item = X[:,idx]
+        a = X[:,item]
+        ref = user
     else:
         x = X
-        item = X[idx,:]
-    neighbors = zip(*heapq.nlargest(k, enumerate([cal_sim(item,a, ref)
-                                                  for a in x]),
+        a = X[user,:]
+        ref = item
+    neighbors = zip(*heapq.nlargest(k, enumerate([cal_sim(a, b, ref)
+                                                  for b in x]),
                                     key=operator.itemgetter(1)))
-    return neighbors[0], neighbors[1]
+    return np.array(neighbors[0]), np.array(neighbors[1])
 
 
-def rateit(first, second, X, k, item2item=True):
+def get_wgts(user, item, X, k, item2item=True):
+    """TODO: Docstring for get_wgts.
+    :returns: TODO
+
+    """
+    pass
+
+
+def baseline_estimator(X, user, item, k, Mu):
+    """TODO: Docstring for baseline_estimator.
+
+    :arg1: TODO
+    :returns: TODO
+
+    """
+    items = X[:,item]
+    items = items[items!=0]
+    user_mean = np.mean(X[user,X[user,:]!=0], dtype=np.float)
+    if items.shape[0] == 0:
+        return user_mean
+    else:
+        bxi = user_mean + (np.mean(items) - Mu)
+        return bxi
+
+
+def neighborhood_estimator(X, user, item, k, Mu, item2item=True, scheme='item'):
+    """TODO: Docstring for neighborhood_estimator.
+
+    :scheme: 'item' or 'regression'
+    :returns: TODO
+
+    """
+    items = X[:,item]
+    items = items[items!=0]
+    user_mean = np.mean(X[user,X[user,:]!=0], dtype=np.float)
+    if items.shape[0] == 0:
+        return user_mean
+
+    indices, sims = get_sims(user, item, X, k, item2item)
+
+    if item2item:
+        bxi = user_mean + (np.mean(items) - Mu)
+        multi_items = X[:,indices]
+
+        return bxi + np.sum(sims*((X[user, indices]-user_mean)-\
+                                  np.average(multi_items, axis=0,
+                                             weights=multi_items.astype(bool))+\
+                                  Mu))/np.sum(sims)
+    else:
+        return np.sum(sims*X[indices, item])/np.sum(sims)
+
+
+def item_bias_t(item, items, Bin, Mu):
+    """TODO: Docstring for item_bias_t.
+    :returns: TODO
+
+    """
+    item_mean = np.mean(items)
+    bi = item_mean - Mu
+    bit = Bin[1].get(item+1, item_mean) - Bin[2]
+    return bi + bit
+
+
+def user_bias_t(rates, t, tu, gamma, Mu, user_mean, time_mean):
+    """TODO: Docstring for user_bias_t.
+    :returns: TODO
+
+    """
+    group = rates.groupby('Timestamp').Rating.mean()
+    btls = (group.loc[tu] - time_mean.loc[tu]).values
+    bu = user_mean - Mu
+    tmp = np.exp(-gamma*np.abs((t-tu).astype('timedelta64[D]').values))
+    devu = np.sum(tmp*btls)/np.sum(tmp)
+    # print 't:', t
+    # print 'tu:', tu
+    # print 't-tu:', t-tu
+    # print 'btls:', btls
+    # print 'bu:', bu
+    # print 'tmp:', tmp
+    # print 'devu:', devu
+    return bu + devu + 0
+
+
+def spline_plus(X, rating, user, item, t, Mu, gamma, Bins, time_mean):
+    """TODO: Docstring for spline_plus.
+    :returns: TODO
+
+    """
+    items = X[:,item]
+    items = items[items!=0]
+    user_mean = np.mean(X[user,X[user,:]!=0], dtype=np.float)
+    if items.shape[0] == 0:
+        return user_mean
+    else:
+        rates = rating[rating.UserID==user+1]
+        timestamps = rates.Timestamp
+        total = timestamps.shape[0]
+        ku = total ** 0.25
+        step = int(total/ku)
+        tu = timestamps.iloc[[i for i in range(0, total, step)]]
+        return Mu + user_bias_t(rates, t, tu, gamma, Mu, user_mean, time_mean) +\
+                item_bias_t(item, items, find_bin(Bins,t), Mu)
+
+
+def rateit(X, user, item, k, Mu=None, item2item=True, algorithm='baseline',
+           t=None, gamma=None, Bins=None, rating=None, time_mean=None):
     """TODO: Docstring for rateit.
     :returns: TODO
 
     """
-    indices, sims = get_sims(second, first, X, k, item2item)
-    user_mean = np.mean(X[first,X[first,:]!=0], dtype=np.float)
-    bxi = user_mean + np.std(X[:,second])
-    return bxi + np.sum(sims*((X[first, indices]-user_mean)-\
-                              np.std(X[:,indices],axis=0)))/np.sum(sims)
+    if not Mu:
+        Mu = np.mean(X[X!=0])
+
+    if algorithm == 'baseline':
+        res = baseline_estimator(X, user, item, k, Mu)
+    elif algorithm == 'neighborhood':
+        res = neighborhood_estimator(X, user, item, k, Mu, item2item)
+    elif algorithm == 'temporal':
+        res = spline_plus(X, rating, user, item, t, Mu, gamma, Bins, time_mean)
+    else:
+        print 'Unsupported algorithm: %s' % (algorithm)
+        exit(0)
+
+    if np.isnan(res):
+        res = 0
+
+    return res
 
 
-def baseline_estimator(X):
-    """TODO: Docstring for baseline_estimator.
+def testing(fn, X_train, X_test, k, item2item=True, algorithm='baseline',
+            gamma=None, Bins=None, rating=None, time_mean=None):
+    """TODO: Docstring for test_for_temproal.
+
+    :arg1: TODO
     :returns: TODO
 
     """
-    for idx, rate in enumerate(X[0,:]):
-        if rate != 0:
-            print rate, rateit(0, idx, X, 20)
-    # print rateit(0,0,X,20)
+    num_sample = 2000
+    res = pd.read_csv(fn, sep='::', header=None, engine='python',
+                      names=['UserID', 'MovieID', 'Rating', 'Timestamp'])
+    y_true = np.zeros((num_sample,1))
+    y_pred = np.zeros((num_sample,1))
+    Mu = np.mean(X_train[X_train!=0])
+
+    for idx in range(num_sample):
+        rate = res.iloc[idx]
+        t = datetime.fromtimestamp(rate[3]).date()
+        y_true[idx] = rate[2]
+        y_pred[idx] = rateit(X_train, rate[0]-1, rate[1]-1, k, Mu, item2item,
+                             algorithm, t, gamma, Bins, rating, time_mean)
+
+    print cal_rmse(y_true, y_pred)
 
 
 def main():
@@ -123,15 +269,26 @@ def main():
     """
     args = get_args()
     if args.forhomework:
-        X_train, X_test = transform_data(args.moviesf, args.ratingf,
-                                         args.usersf, True)
+        start = time.time()
+        X_train, X_test,\
+        rating, Bins = transform_data(args.moviesf, args.ratingf,
+                                      args.usersf, True, args.numbin)
+        print 'loading time: %f' % (time.time() - start)
     else:
         X = load_data(args.fn, 'rating').values
 
     print X_train.shape, X_test.shape
 
+    time_mean = rating.groupby('Timestamp').Rating.mean()
     start = time.time()
-    baseline_estimator(X_train)
+    if args.testit:
+        testing(args.ratingf, X_train, X_test, args.cfk, args.item2item,
+                args.alg, 0.3, Bins, rating, time_mean)
+    else:
+        t = datetime.fromtimestamp(978824268).date()
+        train_mu = np.mean(X_train[X_train!=0])
+        res = rateit(X_train, 0, 0, args.cfk, train_mu, args.item2item, args.alg, t, 0.3, Bins, rating, time_mean)
+        print X_train[0,0], res
     print 'recsys time: %f' % (time.time() - start)
 
 
