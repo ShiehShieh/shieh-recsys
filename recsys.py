@@ -11,10 +11,11 @@ from math import sqrt
 from datetime import datetime
 from scipy.linalg import svd
 from scipy.stats import pearsonr
+from scipy.spatial.distance import cosine
 from sklearn.metrics import mean_squared_error
 from shieh_utils import *
-# from shieh_kmeans import kmeans
-# from shieh_svd import dim_reduction_svd
+from shieh_kmeans import kmeans
+from shieh_svd import dim_reduction_svd
 
 
 VERSION = 'v4.0.0'
@@ -54,18 +55,20 @@ def get_args():
                         help='Use user-user.', dest='item2item')
     parser.add_argument('--testit', action='store_true',
                         help='Testing model.', dest='testit')
+    parser.add_argument('--svd', action='store_true',
+                        help='SVDNeighbourhood.', dest='svd')
     parser.add_argument('--forhomework', action='store_true',
                         help='Homework model.', dest='forhomework')
 
     return parser.parse_args()
 
 
-def cal_sim(a, b, ref):
+def cal_sim(a, b, c, ref):
     """TODO: Docstring for cal_sim.
     :returns: TODO
 
     """
-    if b[ref] == 0:
+    if c[ref] == 0:
         return 0
 
     a = a / np.sum(a[a!=0], dtype=np.float)
@@ -88,23 +91,30 @@ def cal_rmse(y_actual, y_pred):
     return rmse
 
 
-def get_sims(user, item, X, k, item2item=True):
+def get_sims(X, user, item, k, item2item=True, reduced=None):
     """TODO: Docstring for get_sims.
     :returns: TODO
 
     """
     # TODO itself
+    if reduced is not None:
+        comp = reduced
+    else:
+        comp = X
+
     if item2item:
-        x = X.T
-        a = X[:,item]
+        a = comp[:,item]
+        X = X.T
+        comp = comp.T
         ref = user
     else:
-        x = X
-        a = X[user,:]
+        a = comp[user,:]
         ref = item
-    neighbors = zip(*heapq.nlargest(k, enumerate([cal_sim(a, b, ref)
-                                                  for b in x]),
-                                    key=operator.itemgetter(1)))
+
+    tar = enumerate([cal_sim(a, comp[idx,:], X[idx,:], ref)
+                     for idx in range(X.shape[0])])
+
+    neighbors = zip(*heapq.nlargest(k, tar, key=operator.itemgetter(1)))
     return np.array(neighbors[0]), np.array(neighbors[1])
 
 
@@ -133,7 +143,8 @@ def baseline_estimator(X, user, item, k, Mu):
         return bxi
 
 
-def neighborhood_estimator(X, user, item, k, Mu, item2item=True, scheme='item'):
+def neighborhood_estimator(X, user, item, k, Mu, item2item=True,
+                           scheme='item', reduced=None):
     """TODO: Docstring for neighborhood_estimator.
 
     :scheme: 'item' or 'regression'
@@ -146,7 +157,7 @@ def neighborhood_estimator(X, user, item, k, Mu, item2item=True, scheme='item'):
     if items.shape[0] == 0:
         return user_mean
 
-    indices, sims = get_sims(user, item, X, k, item2item)
+    indices, sims = get_sims(X, user, item, k, item2item, reduced)
 
     if item2item:
         bxi = user_mean + (np.mean(items) - Mu)
@@ -212,8 +223,19 @@ def spline_plus(X, rating, user, item, t, Mu, gamma, Bins, time_mean):
                 item_bias_t(item, items, find_bin(Bins,t), Mu)
 
 
-def rateit(X, user, item, k, Mu=None, item2item=True, algorithm='baseline',
-           t=None, gamma=None, Bins=None, rating=None, time_mean=None):
+def svd_pred(X, user, item, svd1, svd2):
+    """TODO: Docstring for svd.
+    :returns: TODO
+
+    """
+    user_mean = np.mean(X[user,X[user,:]!=0], dtype=np.float)
+    return user_mean + np.dot(svd1[user,:], svd2[:,item])
+
+
+def rateit(X, user, item, minv, maxv, k,
+           Mu=None, item2item=True, algorithm='baseline',
+           t=None, gamma=None, Bins=None,
+           rating=None, time_mean=None, svd1=None, svd2=None):
     """TODO: Docstring for rateit.
     :returns: TODO
 
@@ -224,9 +246,12 @@ def rateit(X, user, item, k, Mu=None, item2item=True, algorithm='baseline',
     if algorithm == 'baseline':
         res = baseline_estimator(X, user, item, k, Mu)
     elif algorithm == 'neighborhood':
-        res = neighborhood_estimator(X, user, item, k, Mu, item2item)
+        res = neighborhood_estimator(X, user, item, k, Mu,
+                                     item2item, 'item', svd1)
     elif algorithm == 'temporal':
         res = spline_plus(X, rating, user, item, t, Mu, gamma, Bins, time_mean)
+    elif algorithm == 'svd':
+        res = svd_pred(X, user, item, svd1, svd2)
     else:
         print 'Unsupported algorithm: %s' % (algorithm)
         exit(0)
@@ -234,30 +259,37 @@ def rateit(X, user, item, k, Mu=None, item2item=True, algorithm='baseline',
     if np.isnan(res):
         res = 0
 
+    if res > maxv:
+        res = maxv
+    elif res < minv:
+        res = minv
+
     return res
 
 
-def testing(fn, X_train, X_test, k, item2item=True, algorithm='baseline',
-            gamma=None, Bins=None, rating=None, time_mean=None):
+def testing(X_train, X_test, k, item2item=True, algorithm='baseline',
+            gamma=None, Bins=None, rating=None,
+            time_mean=None, svd1=None, svd2=None):
     """TODO: Docstring for test_for_temproal.
 
     :arg1: TODO
     :returns: TODO
 
     """
-    num_sample = 2000
-    res = pd.read_csv(fn, sep='::', header=None, engine='python',
-                      names=['UserID', 'MovieID', 'Rating', 'Timestamp'])
+    num_sample = 1000
     y_true = np.zeros((num_sample,1))
     y_pred = np.zeros((num_sample,1))
     Mu = np.mean(X_train[X_train!=0])
 
     for idx in range(num_sample):
-        rate = res.iloc[idx]
+        if idx % 100 == 0:
+            print 'Processing sample: %d' % (idx)
+        rate = X_test[idx]
         t = datetime.fromtimestamp(rate[3]).date()
         y_true[idx] = rate[2]
-        y_pred[idx] = rateit(X_train, rate[0]-1, rate[1]-1, k, Mu, item2item,
-                             algorithm, t, gamma, Bins, rating, time_mean)
+        y_pred[idx] = rateit(X_train, rate[0]-1, rate[1]-1, 1, 5,
+                             k, Mu, item2item, algorithm, t, gamma,
+                             Bins, rating, time_mean, svd1, svd2)
 
     print cal_rmse(y_true, y_pred)
 
@@ -279,15 +311,41 @@ def main():
 
     print X_train.shape, X_test.shape
 
+    svd1 = None
+    svd2 = None
+    if args.alg == 'svd':
+        densed = impute(X_train)
+        normalized = normalize(densed, False)
+        Uk, Sk, Vk, ratio = dim_reduction_svd(normalized, args.d, args.v, False)
+        root_Sk = np.sqrt(Sk)
+        us = np.dot(Uk, root_Sk)
+        sv = np.dot(root_Sk, Vk)
+        svd1 = us
+        svd2 = sv
+        del normalized
+    elif args.svd:
+        X_train
+        if args.item2item:
+            Uk, Sk, Vk, ratio = dim_reduction_svd(X_train.T, args.d, args.v, False)
+            root_Sk = np.sqrt(Sk)
+            us = np.dot(Uk, root_Sk)
+            svd1 = us.T
+        else:
+            Uk, Sk, Vk, ratio = dim_reduction_svd(X_train, args.d, args.v, False)
+            root_Sk = np.sqrt(Sk)
+            us = np.dot(Uk, root_Sk)
+            svd1 = us
+        print ratio
+
     time_mean = rating.groupby('Timestamp').Rating.mean()
     start = time.time()
     if args.testit:
-        testing(args.ratingf, X_train, X_test, args.cfk, args.item2item,
-                args.alg, 0.3, Bins, rating, time_mean)
+        testing(X_train, X_test, args.cfk, args.item2item,
+                args.alg, 0.3, Bins, rating, time_mean, svd1, svd2)
     else:
         t = datetime.fromtimestamp(978824268).date()
         train_mu = np.mean(X_train[X_train!=0])
-        res = rateit(X_train, 0, 0, args.cfk, train_mu, args.item2item, args.alg, t, 0.3, Bins, rating, time_mean)
+        res = rateit(X_train, 0, 0, 1, 5, args.cfk, train_mu, args.item2item, args.alg, t, 0.3, Bins, rating, time_mean, svd1, sdv2)
         print X_train[0,0], res
     print 'recsys time: %f' % (time.time() - start)
 

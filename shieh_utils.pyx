@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 
+import cython
 import numpy as np
 import pandas as pd
 import matplotlib.cm as cm
@@ -12,8 +13,8 @@ from sklearn.decomposition import PCA
 cimport numpy as np
 
 
-DTYPE = np.int
-ctypedef np.int_t DTYPE_t
+DTYPE = np.float
+ctypedef np.float_t DTYPE_t
 
 
 def load_data(fn, ftype):
@@ -29,6 +30,8 @@ def load_data(fn, ftype):
     return res
 
 
+@cython.boundscheck(False)
+@cython.wraparound(False)
 def split2itembins(rating, numbin):
     """TODO: Docstring for split2bins.
     :returns: TODO
@@ -54,6 +57,59 @@ def find_bin(list Bins, t):
     return Bins[-1]
 
 
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def impute(np.ndarray[DTYPE_t, ndim=2] X, copy=True):
+    cdef:
+        Py_ssize_t i, j
+        double aver
+        np.ndarray[DTYPE_t, ndim=1] col
+        np.ndarray[DTYPE_t, ndim=2] _X
+
+    if copy:
+        _X = np.array(X, dtype=DTYPE)
+    else:
+        _X = X
+
+    for j in range(X.shape[1]):
+        col = X[:,j]
+        nonzeros = col[col!=0]
+
+        if nonzeros.shape[0] != 0:
+            aver = np.mean(nonzeros)
+
+            for i in range(X.shape[0]):
+                if X[i,j] == 0:
+                    _X[i,j] = aver
+
+    return _X
+
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def normalize(np.ndarray[DTYPE_t, ndim=2] X, copy=True):
+    cdef:
+        Py_ssize_t i, j
+        double aver
+        np.ndarray[DTYPE_t, ndim=1] row
+        np.ndarray[DTYPE_t, ndim=2] _X
+
+    if copy:
+        _X = np.array(X, dtype=DTYPE)
+    else:
+        _X = X
+
+    for i in range(X.shape[0]):
+        row = X[i,:]
+        nonzeros = row[row!=0]
+
+        if nonzeros.shape[0] != 0:
+            aver = np.mean(nonzeros)
+            _X[i,:] = row - aver
+
+    return _X
+
+
 def transform_data(moviesf, ratingf, usersf, splitit=False, numbin=0):
     """TODO: Docstring for transform_data.
     :returns: TODO
@@ -72,19 +128,20 @@ def transform_data(moviesf, ratingf, usersf, splitit=False, numbin=0):
 
     # TODO missing values
     X_train = np.full((users[-1], movies[-1],), 0, dtype=DTYPE)
-    X_test = None
+    X_test = np.full((0,0,), 0, dtype=DTYPE)
 
     if splitit:
-        X_test = np.full((users[-1], movies[-1],), 0, dtype=DTYPE)
+        X_test_list = []
         rating.sort_values(by=['UserID', 'Timestamp'], inplace=True)
         for uid in users:
             rates = rating.loc[rating.UserID==uid,:]
             sep = rates.shape[0]*0.9
-            for idx, rate in enumerate(rates.values):
+            for idx, rate in enumerate(rates.values.astype(DTYPE)):
                 if idx <= sep:
                     X_train[rate[0]-1][rate[1]-1] = rate[2]
                 else:
-                    X_test[rate[0]-1][rate[1]-1] = rate[2]
+                    X_test_list.append(rate.reshape(1,4))
+        X_test = np.concatenate(X_test_list)
     else:
         for rate in rating.values:
             X_train[rate[0]-1][rate[1]-1] = rate[2]

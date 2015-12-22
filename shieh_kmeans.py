@@ -137,7 +137,7 @@ def main():
     """
     args = get_args()
     if args.forhomework:
-        X, _, _, _, _ = transform_data(args.moviesf, args.ratingf, args.usersf)
+        X, _, _, _, = transform_data(args.moviesf, args.ratingf, args.usersf)
     else:
         X = load_data(args.fn, 'rating').values
 

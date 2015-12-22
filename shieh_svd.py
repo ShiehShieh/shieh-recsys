@@ -41,27 +41,36 @@ def get_args():
     return parser.parse_args()
 
 
-def dim_reduction_svd(X, d=None, v=None):
+def dim_reduction_svd(X, d=None, v=None, combineit=True):
     """TODO: Docstring for dim_reduction_svd.
     :returns: TODO
 
     """
     U, Sigma, Vh = svd(X)
 
+    sum_ = 0
+    summation = np.sum(Sigma)
     if v:
-        sum_ = 0
-        summation = np.sum(Sigma)
         for i in range(Sigma.shape[0]):
             sum_ += Sigma[i]
             if sum_/summation >= v:
                 idx = i
                 break
     elif d:
+        for i in range(d):
+            sum_ += Sigma[i]
         idx = d
     else:
         return X
 
-    return np.dot(U[:,:idx], np.diag(Sigma[:idx])), sum_/summation
+    reduced = np.dot(U[:,:idx], np.diag(Sigma[:idx]))
+    reconstructed = np.dot(reduced, Vh[:idx,:])
+    ratio = sum_/summation
+
+    if combineit:
+        return reduced, reconstructed, ratio
+    else:
+        return U[:,:idx], np.diag(Sigma[:idx]), Vh[:idx,:], ratio
 
 
 def main():
