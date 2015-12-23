@@ -14,7 +14,7 @@ from scipy.spatial.distance import cosine
 from sklearn.metrics import mean_squared_error
 from shieh_kmeans import kmeans
 from shieh_svd import dim_reduction_svd
-from shieh_utils import transform_data, load_data, impute, normalize
+from shieh_utils import transform_data, load_data, impute, normalize, find_bin
 
 
 VERSION = 'v4.0.0'
@@ -126,8 +126,8 @@ def get_sims(X, user, item, k, item2item=True, reduced=None):
 
     tar = enumerate([cal_sim(a, comp[idx,:], X[idx,:], ref)
                      for idx in range(X.shape[0])])
-
     neighbors = zip(*heapq.nlargest(k, tar, key=operator.itemgetter(1)))
+
     return np.array(neighbors[0]), np.array(neighbors[1])
 
 
@@ -313,7 +313,7 @@ def testing(X_train, X_test, func, **arg):
         rate = X_test[idx]
         t = datetime.fromtimestamp(rate[3]).date()
         y_true[idx] = rate[2]
-        y_pred[idx] = func(X_train, rate[0]-1, rate[1]-1, t=t, **arg)
+        y_pred[idx] = func(X_train, int(rate[0]-1), int(rate[1]-1), t=t, **arg)
 
     print cal_rmse(y_true, y_pred)
 
