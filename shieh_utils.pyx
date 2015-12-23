@@ -62,8 +62,8 @@ def find_bin(list Bins, t):
 @cython.wraparound(False)
 def impute(np.ndarray[DTYPE_t, ndim=2] X, copy=True):
     cdef:
-        Py_ssize_t i, j
         double aver
+        Py_ssize_t i, j
         np.ndarray[DTYPE_t, ndim=1] col
         np.ndarray[DTYPE_t, ndim=2] _X
 

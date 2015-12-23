@@ -2558,7 +2558,7 @@ static PyObject *__pyx_pf_11shieh_utils_4find_bin(CYTHON_UNUSED PyObject *__pyx_
  * @cython.wraparound(False)
  * def impute(np.ndarray[DTYPE_t, ndim=2] X, copy=True):             # <<<<<<<<<<<<<<
  *     cdef:
- *         Py_ssize_t i, j
+ *         double aver
  */
 
 /* Python wrapper */
@@ -2632,9 +2632,9 @@ static PyObject *__pyx_pw_11shieh_utils_7impute(PyObject *__pyx_self, PyObject *
 }
 
 static PyObject *__pyx_pf_11shieh_utils_6impute(CYTHON_UNUSED PyObject *__pyx_self, PyArrayObject *__pyx_v_X, PyObject *__pyx_v_copy) {
+  double __pyx_v_aver;
   Py_ssize_t __pyx_v_i;
   Py_ssize_t __pyx_v_j;
-  double __pyx_v_aver;
   PyArrayObject *__pyx_v_col = 0;
   PyArrayObject *__pyx_v__X = 0;
   PyObject *__pyx_v_nonzeros = NULL;
@@ -2984,7 +2984,7 @@ static PyObject *__pyx_pf_11shieh_utils_6impute(CYTHON_UNUSED PyObject *__pyx_se
  * @cython.wraparound(False)
  * def impute(np.ndarray[DTYPE_t, ndim=2] X, copy=True):             # <<<<<<<<<<<<<<
  *     cdef:
- *         Py_ssize_t i, j
+ *         double aver
  */
 
   /* function exit code */
@@ -8225,9 +8225,9 @@ static int __Pyx_InitCachedConstants(void) {
  * @cython.wraparound(False)
  * def impute(np.ndarray[DTYPE_t, ndim=2] X, copy=True):             # <<<<<<<<<<<<<<
  *     cdef:
- *         Py_ssize_t i, j
+ *         double aver
  */
-  __pyx_tuple__39 = PyTuple_Pack(8, __pyx_n_s_X, __pyx_n_s_copy, __pyx_n_s_i, __pyx_n_s_j, __pyx_n_s_aver, __pyx_n_s_col, __pyx_n_s_X_2, __pyx_n_s_nonzeros); if (unlikely(!__pyx_tuple__39)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 63; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_tuple__39 = PyTuple_Pack(8, __pyx_n_s_X, __pyx_n_s_copy, __pyx_n_s_aver, __pyx_n_s_i, __pyx_n_s_j, __pyx_n_s_col, __pyx_n_s_X_2, __pyx_n_s_nonzeros); if (unlikely(!__pyx_tuple__39)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 63; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_tuple__39);
   __Pyx_GIVEREF(__pyx_tuple__39);
   __pyx_codeobj__40 = (PyObject*)__Pyx_PyCode_New(2, 0, 8, 0, 0, __pyx_empty_bytes, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_tuple__39, __pyx_empty_tuple, __pyx_empty_tuple, __pyx_kp_s_Users_huangli_Documents_Tongji, __pyx_n_s_impute, 63, __pyx_empty_bytes); if (unlikely(!__pyx_codeobj__40)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 63; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
@@ -8592,7 +8592,7 @@ PyMODINIT_FUNC PyInit_shieh_utils(void)
  * @cython.wraparound(False)
  * def impute(np.ndarray[DTYPE_t, ndim=2] X, copy=True):             # <<<<<<<<<<<<<<
  *     cdef:
- *         Py_ssize_t i, j
+ *         double aver
  */
   __pyx_t_1 = PyCFunction_NewEx(&__pyx_mdef_11shieh_utils_7impute, NULL, __pyx_n_s_shieh_utils); if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 63; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_1);

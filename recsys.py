@@ -211,10 +211,8 @@ def cluster_useritem(X, k_x, k_y):
         for j in range(k_y):
             entries = X[Y_x==i,:][:,Y_y==j]
             nonzeros = entries[entries!=0]
-            if nonzeros.shape[0] == 0:
-                C_C[i,j] = 0
-            else:
-                C_C [i,j] = np.mean(nonzeros)
+            if nonzeros.shape[0] != 0:
+                C_C[i,j] = np.mean(nonzeros)
 
     return C_C, Y_x, Y_y
 
@@ -235,7 +233,10 @@ def kmeans_pred(C_C, user, item, Y_x, Y_y, cfk, item2item, **kargs):
             res = np.sum(sims*(np.average(multi_items, axis=0,
                                           weights=multi_items.astype(bool))))/np.sum(sims)
         else:
-            res = X[indices, item]
+            multi_users = C_C[indices,:]
+            res = np.sum(sims*(np.average(multi_users, axis=1,
+                                          weights=multi_users.astype(bool))))/np.sum(sims)
+        C_C[Y_user, Y_item] = res
 
     return check_range(res)
 
@@ -414,6 +415,8 @@ def svd_env(X_train, X_test, rating, Bins, args):
     """
     svd1, svd2, ratio = svd_wrapper(args.d, args.v, args.alg, args.svd,
                                     args.item2item, X_train)
+    print 'dimension: %d' % (svd1.shape[1])
+    print 'ratio: %f' % (ratio)
     if args.testit:
         testing(X_train, X_test, svd_pred, svd1=svd1, svd2=svd2)
 
