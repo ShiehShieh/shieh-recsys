@@ -31,11 +31,9 @@ def get_args():
     parser.add_argument('--version', action='version',
                         help='Version.', version=VERSION)
     parser.add_argument('-d', action='store', type=int, default=None,
-                        help='Preserved Dimention.', dest='d')
+                        help='Preserved Dimension.', dest='d')
     parser.add_argument('-v', action='store', type=float, default=None,
                         help='Preserved Variance.', dest='v')
-    parser.add_argument('-k', action='store', type=int, default=20,
-                        help='The number of cluster.', dest='k')
     parser.add_argument('--kx', action='store', type=int,
                         help='The number of cluster of user.', dest='k_x')
     parser.add_argument('--ky', action='store', type=int,
@@ -449,7 +447,7 @@ def main():
     elif args.alg== 'kmeans':
         kmeans_env(X_train, X_test, rating, Bins, args)
     else:
-        print 'Unsupported algorithm: %s' % (algorithm)
+        print 'Unsupported algorithm: %s' % (args.alg)
         exit(0)
     print 'recsys time: %f' % (time.time() - start)
 

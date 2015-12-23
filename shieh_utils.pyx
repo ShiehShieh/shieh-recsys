@@ -48,6 +48,7 @@ def split2itembins(rating, numbin):
     return Bins
 
 
+@cython.boundscheck(False)
 def find_bin(list Bins, t):
     cdef:
         Py_ssize_t idx
@@ -110,6 +111,7 @@ def normalize(np.ndarray[DTYPE_t, ndim=2] X, copy=True):
     return _X
 
 
+@cython.boundscheck(False)
 def transform_data(moviesf, ratingf, usersf, splitit=False, numbin=0):
     """TODO: Docstring for transform_data.
     :returns: TODO
