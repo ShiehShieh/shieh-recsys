@@ -81,7 +81,7 @@ def update_Cx(X, Y, C):
 
     """
     if Y is None:
-        Y = np.zeros(X.shape[0])
+        Y = np.empty(X.shape[0])
     for idx in range(X.shape[0]):
         Y[idx] = np.argmin(pairwise_distances(C, X[idx,:].reshape(1,-1)))
 

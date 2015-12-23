@@ -145,7 +145,7 @@ def transform_data(moviesf, ratingf, usersf, splitit=False, numbin=0):
                     X_test_list.append(rate.reshape(1,4))
         X_test = np.concatenate(X_test_list)
     else:
-        for rate in rating.values:
+        for rate in rating.values.astype(DTYPE):
             X_train[rate[0]-1][rate[1]-1] = rate[2]
 
     if numbin:
