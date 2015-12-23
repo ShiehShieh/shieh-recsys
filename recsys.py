@@ -9,13 +9,12 @@ import operator
 import numpy as np
 from math import sqrt
 from datetime import datetime
-from scipy.linalg import svd
 from scipy.stats import pearsonr
 from scipy.spatial.distance import cosine
 from sklearn.metrics import mean_squared_error
-from shieh_utils import *
 from shieh_kmeans import kmeans
 from shieh_svd import dim_reduction_svd
+from shieh_utils import transform_data, load_data, impute, normalize
 
 
 VERSION = 'v4.0.0'
@@ -37,6 +36,10 @@ def get_args():
                         help='Preserved Variance.', dest='v')
     parser.add_argument('-k', action='store', type=int, default=20,
                         help='The number of cluster.', dest='k')
+    parser.add_argument('--kx', action='store', type=int,
+                        help='The number of cluster of user.', dest='k_x')
+    parser.add_argument('--ky', action='store', type=int,
+                        help='The number of cluster of item.', dest='k_y')
     parser.add_argument('--cfk', action='store', type=int, default=20,
                         help='K nearest neighbors.', dest='cfk')
     parser.add_argument('--numbin', action='store', type=int, default=None,
@@ -188,13 +191,13 @@ def neighborhood_pred(X, user, item, k, Mu, item2item=True,
     return check_range(res)
 
 
-def kmeans_cluster(X, k_x, k_y):
-    """TODO: Docstring for kmeans_cluster.
+def cluster_useritem(X, k_x, k_y):
+    """TODO: Docstring for cluster_useritem.
     :returns: TODO
 
     """
-    X, Y_x, C_x = kmeans(X, k_x, 2)
-    _, Y_y, C_y = kmeans(X.T, k_y, 2)
+    X, Y_x, C_x = kmeans(X, k_x, 6)
+    _, Y_y, C_y = kmeans(X.T, k_y, 6)
 
     C_C = np.zeros((k_x, k_y), dtype=np.float)
 
@@ -210,7 +213,7 @@ def kmeans_cluster(X, k_x, k_y):
     return C_C, Y_x, Y_y
 
 
-def kmeans_pred(C_C, user, item, Y_x, Y_y, k, item2item, **kargs):
+def kmeans_pred(C_C, user, item, Y_x, Y_y, cfk, item2item, **kargs):
     """TODO: Docstring for kmeans_estimator.
     :returns: TODO
 
@@ -218,9 +221,9 @@ def kmeans_pred(C_C, user, item, Y_x, Y_y, k, item2item, **kargs):
     Y_user = Y_x[user]
     Y_item = Y_y[item]
     res = C_C[Y_user, Y_item]
-    
+
     if res == 0:
-        indices, sims = get_sims(C_C, Y_user, Y_item, k, item2item, None)
+        indices, sims = get_sims(C_C, Y_user, Y_item, cfk, item2item, None)
         if item2item:
             multi_items = C_C[:,indices]
             res = np.sum(sims*(np.average(multi_items, axis=0,
@@ -302,7 +305,7 @@ def testing(X_train, X_test, func, **arg):
     :returns: TODO
 
     """
-    num_sample = 300
+    num_sample = 1000
     y_true = np.zeros((num_sample,1))
     y_pred = np.zeros((num_sample,1))
 
@@ -411,10 +414,10 @@ def kmeans_env(X_train, X_test, rating, Bins, args):
     :returns: TODO
 
     """
-    C_C, Y_x, Y_y = kmeans_cluster(X_train, 600, 400)
+    C_C, Y_x, Y_y = cluster_useritem(X_train, args.k_x, args.k_y)
     if args.testit:
         testing(C_C, X_test, kmeans_pred, Y_x=Y_x, Y_y=Y_y,
-                k=args.k, item2item=args.item2item)
+                cfk=args.cfk, item2item=args.item2item)
 
 
 def main():
