@@ -63,6 +63,18 @@ def get_args():
     return parser.parse_args()
 
 
+def check_range(res, minv=1, maxv=5):
+    """TODO: Docstring for check_range.
+    :returns: TODO
+
+    """
+    if res > maxv:
+        res = maxv
+    elif res < minv:
+        res = minv
+    return res
+
+
 def cal_sim(a, b, c, ref):
     """TODO: Docstring for cal_sim.
     :returns: TODO
@@ -126,8 +138,8 @@ def get_wgts(user, item, X, k, item2item=True):
     pass
 
 
-def baseline_estimator(X, user, item, k, Mu):
-    """TODO: Docstring for baseline_estimator.
+def baseline_pred(X, user, item, Mu, **kargs):
+    """TODO: Docstring for baseline_pred.
 
     :arg1: TODO
     :returns: TODO
@@ -136,16 +148,19 @@ def baseline_estimator(X, user, item, k, Mu):
     items = X[:,item]
     items = items[items!=0]
     user_mean = np.mean(X[user,X[user,:]!=0], dtype=np.float)
+
     if items.shape[0] == 0:
-        return user_mean
+        res = user_mean
     else:
         bxi = user_mean + (np.mean(items) - Mu)
-        return bxi
+        res = bxi
+
+    return check_range(res)
 
 
-def neighborhood_estimator(X, user, item, k, Mu, item2item=True,
-                           scheme='item', reduced=None):
-    """TODO: Docstring for neighborhood_estimator.
+def neighborhood_pred(X, user, item, k, Mu, item2item=True,
+                      scheme='item', reduced=None, **kargs):
+    """TODO: Docstring for neighborhood_pred.
 
     :scheme: 'item' or 'regression'
     :returns: TODO
@@ -155,7 +170,7 @@ def neighborhood_estimator(X, user, item, k, Mu, item2item=True,
     items = items[items!=0]
     user_mean = np.mean(X[user,X[user,:]!=0], dtype=np.float)
     if items.shape[0] == 0:
-        return user_mean
+        return check_range(user_mean)
 
     indices, sims = get_sims(X, user, item, k, item2item, reduced)
 
@@ -163,12 +178,57 @@ def neighborhood_estimator(X, user, item, k, Mu, item2item=True,
         bxi = user_mean + (np.mean(items) - Mu)
         multi_items = X[:,indices]
 
-        return bxi + np.sum(sims*((X[user, indices]-user_mean)-\
+        res = bxi + np.sum(sims*((X[user, indices]-user_mean)-\
                                   np.average(multi_items, axis=0,
                                              weights=multi_items.astype(bool))+\
                                   Mu))/np.sum(sims)
     else:
-        return np.sum(sims*X[indices, item])/np.sum(sims)
+        res = np.sum(sims*X[indices, item])/np.sum(sims)
+
+    return check_range(res)
+
+
+def kmeans_cluster(X, k_x, k_y):
+    """TODO: Docstring for kmeans_cluster.
+    :returns: TODO
+
+    """
+    X, Y_x, C_x = kmeans(X, k_x, 2)
+    _, Y_y, C_y = kmeans(X.T, k_y, 2)
+
+    C_C = np.zeros((k_x, k_y), dtype=np.float)
+
+    for i in range(k_x):
+        for j in range(k_y):
+            entries = X[Y_x==i,:][:,Y_y==j]
+            nonzeros = entries[entries!=0]
+            if nonzeros.shape[0] == 0:
+                C_C[i,j] = 0
+            else:
+                C_C [i,j] = np.mean(nonzeros)
+
+    return C_C, Y_x, Y_y
+
+
+def kmeans_pred(C_C, user, item, Y_x, Y_y, k, item2item, **kargs):
+    """TODO: Docstring for kmeans_estimator.
+    :returns: TODO
+
+    """
+    Y_user = Y_x[user]
+    Y_item = Y_y[item]
+    res = C_C[Y_user, Y_item]
+    
+    if res == 0:
+        indices, sims = get_sims(C_C, Y_user, Y_item, k, item2item, None)
+        if item2item:
+            multi_items = C_C[:,indices]
+            res = np.sum(sims*(np.average(multi_items, axis=0,
+                                          weights=multi_items.astype(bool))))/np.sum(sims)
+        else:
+            res = X[indices, item]
+
+    return check_range(res)
 
 
 def item_bias_t(item, items, Bin, Mu):
@@ -202,7 +262,7 @@ def user_bias_t(rates, t, tu, gamma, Mu, user_mean, time_mean):
     return bu + devu + 0
 
 
-def spline_plus(X, rating, user, item, t, Mu, gamma, Bins, time_mean):
+def spline_plus(X, user, item, t, Mu, gamma, Bins, time_mean, rating, **kargs):
     """TODO: Docstring for spline_plus.
     :returns: TODO
 
@@ -210,8 +270,9 @@ def spline_plus(X, rating, user, item, t, Mu, gamma, Bins, time_mean):
     items = X[:,item]
     items = items[items!=0]
     user_mean = np.mean(X[user,X[user,:]!=0], dtype=np.float)
+
     if items.shape[0] == 0:
-        return user_mean
+        res = user_mean
     else:
         rates = rating[rating.UserID==user+1]
         timestamps = rates.Timestamp
@@ -219,67 +280,31 @@ def spline_plus(X, rating, user, item, t, Mu, gamma, Bins, time_mean):
         ku = total ** 0.25
         step = int(total/ku)
         tu = timestamps.iloc[[i for i in range(0, total, step)]]
-        return Mu + user_bias_t(rates, t, tu, gamma, Mu, user_mean, time_mean) +\
+        res = Mu + user_bias_t(rates, t, tu, gamma, Mu, user_mean, time_mean) +\
                 item_bias_t(item, items, find_bin(Bins,t), Mu)
 
+    return check_range(res)
 
-def svd_pred(X, user, item, svd1, svd2):
+
+def svd_pred(X, user, item, svd1, svd2, **kargs):
     """TODO: Docstring for svd.
     :returns: TODO
 
     """
     user_mean = np.mean(X[user,X[user,:]!=0], dtype=np.float)
-    return user_mean + np.dot(svd1[user,:], svd2[:,item])
+    return check_range(user_mean + np.dot(svd1[user,:], svd2[:,item]))
 
 
-def rateit(X, user, item, minv, maxv, k,
-           Mu=None, item2item=True, algorithm='baseline',
-           t=None, gamma=None, Bins=None,
-           rating=None, time_mean=None, svd1=None, svd2=None):
-    """TODO: Docstring for rateit.
-    :returns: TODO
-
-    """
-    if not Mu:
-        Mu = np.mean(X[X!=0])
-
-    if algorithm == 'baseline':
-        res = baseline_estimator(X, user, item, k, Mu)
-    elif algorithm == 'neighborhood':
-        res = neighborhood_estimator(X, user, item, k, Mu,
-                                     item2item, 'item', svd1)
-    elif algorithm == 'temporal':
-        res = spline_plus(X, rating, user, item, t, Mu, gamma, Bins, time_mean)
-    elif algorithm == 'svd':
-        res = svd_pred(X, user, item, svd1, svd2)
-    else:
-        print 'Unsupported algorithm: %s' % (algorithm)
-        exit(0)
-
-    if np.isnan(res):
-        res = 0
-
-    if res > maxv:
-        res = maxv
-    elif res < minv:
-        res = minv
-
-    return res
-
-
-def testing(X_train, X_test, k, item2item=True, algorithm='baseline',
-            gamma=None, Bins=None, rating=None,
-            time_mean=None, svd1=None, svd2=None):
+def testing(X_train, X_test, func, **arg):
     """TODO: Docstring for test_for_temproal.
 
     :arg1: TODO
     :returns: TODO
 
     """
-    num_sample = 1000
+    num_sample = 300
     y_true = np.zeros((num_sample,1))
     y_pred = np.zeros((num_sample,1))
-    Mu = np.mean(X_train[X_train!=0])
 
     for idx in range(num_sample):
         if idx % 100 == 0:
@@ -287,11 +312,109 @@ def testing(X_train, X_test, k, item2item=True, algorithm='baseline',
         rate = X_test[idx]
         t = datetime.fromtimestamp(rate[3]).date()
         y_true[idx] = rate[2]
-        y_pred[idx] = rateit(X_train, rate[0]-1, rate[1]-1, 1, 5,
-                             k, Mu, item2item, algorithm, t, gamma,
-                             Bins, rating, time_mean, svd1, svd2)
+        y_pred[idx] = func(X_train, rate[0]-1, rate[1]-1, t=t, **arg)
 
     print cal_rmse(y_true, y_pred)
+
+
+def svd_wrapper(d, v, alg, svd, item2item, X):
+    """TODO: Docstring for svd_wrapper.
+    :returns: TODO
+
+    """
+    svd1 = None
+    svd2 = None
+    ratio = None
+
+    if alg == 'svd':
+        densed = impute(X)
+        normalized = normalize(densed, False)
+        Uk, Sk, Vk, ratio = dim_reduction_svd(normalized, d, v, False)
+        root_Sk = np.sqrt(Sk)
+        us = np.dot(Uk, root_Sk)
+        sv = np.dot(root_Sk, Vk)
+        svd1 = us
+        svd2 = sv
+    elif svd:
+        if item2item:
+            Uk, Sk, Vk, ratio = dim_reduction_svd(X.T, d, v, False)
+            root_Sk = np.sqrt(Sk)
+            us = np.dot(Uk, root_Sk)
+            svd1 = us.T
+        else:
+            Uk, Sk, Vk, ratio = dim_reduction_svd(X, d, v, False)
+            root_Sk = np.sqrt(Sk)
+            us = np.dot(Uk, root_Sk)
+            svd1 = us
+
+    return svd1, svd2, ratio
+
+
+def baseline_env(X_train, X_test, rating, Bins, args):
+    """TODO: Docstring for baseline_env.
+
+    :arg1: TODO
+    :returns: TODO
+
+    """
+    Mu = np.mean(X_train[X_train!=0])
+    if args.testit:
+        testing(X_train, X_test, baseline_pred, Mu=Mu)
+
+
+def neighborhood_env(X_train, X_test, rating, Bins, args):
+    """TODO: Docstring for _env.
+
+    :arg1: TODO
+    :returns: TODO
+
+    """
+    Mu = np.mean(X_train[X_train!=0])
+    svd1, svd2, ratio = svd_wrapper(args.d, args.v, args.alg, args.svd,
+                                    args.item2item, X_train)
+    if args.testit:
+        testing(X_train, X_test, neighborhood_pred, k=args.cfk, Mu=Mu,
+                item2item=args.item2item, scheme='item', reduced=svd1)
+
+
+def temporal_env(X_train, X_test, rating, Bins, args):
+    """TODO: Docstring for _env.
+
+    :arg1: TODO
+    :returns: TODO
+
+    """
+    Mu = np.mean(X_train[X_train!=0])
+    time_mean = rating.groupby('Timestamp').Rating.mean()
+    if args.testit:
+        testing(X_train, X_test, spline_plus, Mu=Mu, gamma=0.3,
+                Bins=Bins, time_mean=time_mean, rating=rating)
+
+
+def svd_env(X_train, X_test, rating, Bins, args):
+    """TODO: Docstring for _env.
+
+    :arg1: TODO
+    :returns: TODO
+
+    """
+    svd1, svd2, ratio = svd_wrapper(args.d, args.v, args.alg, args.svd,
+                                    args.item2item, X_train)
+    if args.testit:
+        testing(X_train, X_test, svd_pred, svd1=svd1, svd2=svd2)
+
+
+def kmeans_env(X_train, X_test, rating, Bins, args):
+    """TODO: Docstring for _env.
+
+    :arg1: TODO
+    :returns: TODO
+
+    """
+    C_C, Y_x, Y_y = kmeans_cluster(X_train, 600, 400)
+    if args.testit:
+        testing(C_C, X_test, kmeans_pred, Y_x=Y_x, Y_y=Y_y,
+                k=args.k, item2item=args.item2item)
 
 
 def main():
@@ -311,42 +434,20 @@ def main():
 
     print X_train.shape, X_test.shape
 
-    svd1 = None
-    svd2 = None
-    if args.alg == 'svd':
-        densed = impute(X_train)
-        normalized = normalize(densed, False)
-        Uk, Sk, Vk, ratio = dim_reduction_svd(normalized, args.d, args.v, False)
-        root_Sk = np.sqrt(Sk)
-        us = np.dot(Uk, root_Sk)
-        sv = np.dot(root_Sk, Vk)
-        svd1 = us
-        svd2 = sv
-        del normalized
-    elif args.svd:
-        X_train
-        if args.item2item:
-            Uk, Sk, Vk, ratio = dim_reduction_svd(X_train.T, args.d, args.v, False)
-            root_Sk = np.sqrt(Sk)
-            us = np.dot(Uk, root_Sk)
-            svd1 = us.T
-        else:
-            Uk, Sk, Vk, ratio = dim_reduction_svd(X_train, args.d, args.v, False)
-            root_Sk = np.sqrt(Sk)
-            us = np.dot(Uk, root_Sk)
-            svd1 = us
-        print ratio
-
-    time_mean = rating.groupby('Timestamp').Rating.mean()
     start = time.time()
-    if args.testit:
-        testing(X_train, X_test, args.cfk, args.item2item,
-                args.alg, 0.3, Bins, rating, time_mean, svd1, svd2)
+    if args.alg== 'baseline':
+        baseline_env(X_train, X_test, rating, Bins, args)
+    elif args.alg== 'neighborhood':
+        neighborhood_env(X_train, X_test, rating, Bins, args)
+    elif args.alg== 'temporal':
+        temporal_env(X_train, X_test, rating, Bins, args)
+    elif args.alg== 'svd':
+        svd_env(X_train, X_test, rating, Bins, args)
+    elif args.alg== 'kmeans':
+        kmeans_env(X_train, X_test, rating, Bins, args)
     else:
-        t = datetime.fromtimestamp(978824268).date()
-        train_mu = np.mean(X_train[X_train!=0])
-        res = rateit(X_train, 0, 0, 1, 5, args.cfk, train_mu, args.item2item, args.alg, t, 0.3, Bins, rating, time_mean, svd1, sdv2)
-        print X_train[0,0], res
+        print 'Unsupported algorithm: %s' % (algorithm)
+        exit(0)
     print 'recsys time: %f' % (time.time() - start)
 
 

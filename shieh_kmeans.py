@@ -50,7 +50,7 @@ def init_kmeans(X, k):
     :returns: TODO
 
     """
-    randidx = np.random.permutation(10)
+    randidx = np.random.permutation(X.shape[0])
     C = X[randidx[:k],:]
     return C
 
@@ -62,6 +62,8 @@ def update_C(X, Y, C):
     """
     for idx in range(C.shape[0]):
         points = X[Y==idx,:]
+        if points.shape[0] == 0:
+            continue
         unzipped = zip(*points)
         centroid_coords = [math.fsum(d_list)/points.shape[0]
                            for d_list in unzipped]
@@ -94,6 +96,8 @@ def cost_func(X, Y, C):
     cost = 0
     for idx in range(C.shape[0]):
         points = X[Y==idx,:]
+        if points.shape[0] == 0:
+            continue
         cost += math.fsum(pairwise_distances(points, C[idx,:].reshape(1,-1)))
     return cost
 
@@ -112,7 +116,7 @@ def kmeans(X, k, max_iter=100):
         C = update_C(X, Y, C)
         print 'iteration: %d, cost: %f' % (idx, cost_func(X, Y, C))
 
-    print cost_func(X, Y, C)
+    print 'final cost: %f' % (cost_func(X, Y, C))
 
     return X, Y, C
 
