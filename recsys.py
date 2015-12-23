@@ -12,6 +12,7 @@ from datetime import datetime
 from scipy.stats import pearsonr
 from scipy.spatial.distance import cosine
 from sklearn.metrics import mean_squared_error
+from sklearn.linear_model import LinearRegression
 from shieh_kmeans import kmeans
 from shieh_svd import dim_reduction_svd
 from shieh_utils import transform_data, load_data, impute, normalize, find_bin
@@ -44,6 +45,8 @@ def get_args():
                         help='The number of Item Bins.', dest='numbin')
     parser.add_argument('--alg', action='store', default='baseline',
                         help='The name of the algorithm.', dest='alg')
+    parser.add_argument('--scheme', action='store', default='item',
+                        help='The scheme of weight computation.', dest='scheme')
     parser.add_argument('--fn', action='store',
                         help='The name of the file.', dest='fn')
     parser.add_argument('--movies', action='store',
@@ -174,10 +177,15 @@ def neighborhood_pred(X, user, item, k, Mu, item2item=True,
         return check_range(user_mean)
 
     indices, sims = get_sims(X, user, item, k, item2item, reduced)
+    multi_items = X[:,indices]
+    # TODO items dot sims = item
+    if scheme == 'regression':
+        clf = LinearRegression()
+        clf.fit(multi_items, X[:,item])
+        sims = clf.coef_
 
     if item2item:
         bxi = user_mean + (np.mean(items) - Mu)
-        multi_items = X[:,indices]
 
         res = bxi + np.sum(sims*((X[user, indices]-user_mean)-\
                                   np.average(multi_items, axis=0,
@@ -303,14 +311,19 @@ def testing(X_train, X_test, func, **arg):
     :returns: TODO
 
     """
-    num_sample = 1000
+    num_sample = 600
+    # subset = X_test[np.random.randint(X_test.shape[0],size=num_sample),:]
+    subset = X_test[range(0, X_test.shape[0], X_test.shape[0]/num_sample),:]
+
+    print 'Testing Samples: %d' % (subset.shape[0])
+
     y_true = np.zeros((num_sample,1))
     y_pred = np.zeros((num_sample,1))
 
     for idx in range(num_sample):
         if idx % 100 == 0:
             print 'Processing sample: %d' % (idx)
-        rate = X_test[idx]
+        rate = subset[idx]
         t = datetime.fromtimestamp(rate[3]).date()
         y_true[idx] = rate[2]
         y_pred[idx] = func(X_train, int(rate[0]-1), int(rate[1]-1), t=t, **arg)
@@ -375,7 +388,7 @@ def neighborhood_env(X_train, X_test, rating, Bins, args):
                                     args.item2item, X_train)
     if args.testit:
         testing(X_train, X_test, neighborhood_pred, k=args.cfk, Mu=Mu,
-                item2item=args.item2item, scheme='item', reduced=svd1)
+                item2item=args.item2item, scheme=args.scheme, reduced=svd1)
 
 
 def temporal_env(X_train, X_test, rating, Bins, args):
