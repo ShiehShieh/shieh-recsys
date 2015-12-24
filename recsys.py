@@ -236,7 +236,7 @@ def kmeans_pred(C_C, user, item, Y_x, Y_y, cfk, item2item, **kargs):
             multi_users = C_C[indices,:]
             res = np.sum(sims*(np.average(multi_users, axis=1,
                                           weights=multi_users.astype(bool))))/np.sum(sims)
-        C_C[Y_user, Y_item] = res
+        # C_C[Y_user, Y_item] = res
 
     return check_range(res)
 
@@ -305,10 +305,10 @@ def svd_pred(X, user, item, svd1, svd2, **kargs):
     return check_range(user_mean + np.dot(svd1[user,:], svd2[:,item]))
 
 
-def testing(X_train, X_test, func, **arg):
+def testing(X_train, X_test, func, **kargs):
     """TODO: Docstring for test_for_temproal.
 
-    :arg1: TODO
+    :kargs: TODO
     :returns: TODO
 
     """
@@ -316,10 +316,10 @@ def testing(X_train, X_test, func, **arg):
     # subset = X_test[np.random.randint(X_test.shape[0],size=num_sample),:]
     subset = X_test[range(0, X_test.shape[0], X_test.shape[0]/num_sample),:]
 
-    print 'Testing Samples: %d' % (subset.shape[0])
+    print 'The number of testing samples: %d' % (subset.shape[0])
 
-    y_true = np.zeros((num_sample,1))
-    y_pred = np.zeros((num_sample,1))
+    y_true = np.empty((num_sample,1))
+    y_pred = np.empty((num_sample,1))
 
     for idx in range(num_sample):
         if idx % 100 == 0:
@@ -327,9 +327,9 @@ def testing(X_train, X_test, func, **arg):
         rate = subset[idx]
         t = datetime.fromtimestamp(rate[3]).date()
         y_true[idx] = rate[2]
-        y_pred[idx] = func(X_train, int(rate[0]-1), int(rate[1]-1), t=t, **arg)
+        y_pred[idx] = func(X_train, int(rate[0]-1), int(rate[1]-1), t=t, **kargs)
 
-    print cal_rmse(y_true, y_pred)
+    print 'RMSE: %f' % (cal_rmse(y_true, y_pred))
 
 
 def svd_wrapper(d, v, alg, svd, item2item, X):
