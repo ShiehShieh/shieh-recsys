@@ -252,7 +252,7 @@ def item_bias_t(item, items, Bin, Mu):
     item_mean = np.mean(items)
     bi = item_mean - Mu
     bit = Bin[1].get(item+1, item_mean) - Bin[2]
-    return bi + bit
+    return (bi + bit)/2.0
 
 
 def user_bias_t(rates, t, tu, gamma, Mu, user_mean, time_mean):
@@ -272,7 +272,7 @@ def user_bias_t(rates, t, tu, gamma, Mu, user_mean, time_mean):
     # print 'bu:', bu
     # print 'tmp:', tmp
     # print 'devu:', devu
-    return bu + devu + 0
+    return (bu + devu + 0)/2.0
 
 
 def spline_plus(X, user, item, t, Mu, gamma, Bins, time_mean, rating, **kargs):
@@ -315,7 +315,7 @@ def testing(X_train, X_test, func, **kargs):
     :returns: TODO
 
     """
-    num_sample = 600
+    num_sample = 2000
     # subset = X_test[np.random.randint(X_test.shape[0],size=num_sample),:]
     subset = X_test[range(0, X_test.shape[0], X_test.shape[0]/num_sample),:]
 

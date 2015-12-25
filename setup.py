@@ -28,7 +28,7 @@ utils_ext = Extension('shieh.shieh_utils',
                       )
 
 
-extensions = [utils_ext,]
+extensions = [kmeans_ext, utils_ext,]
 
 
 setup(

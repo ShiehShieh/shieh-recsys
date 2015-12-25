@@ -8,7 +8,7 @@
             "/usr/local/lib/python2.7/site-packages/numpy/core/include/numpy/ufuncobject.h"
         ], 
         "extra_compile_args": [
-            "-O2", 
+            "-O3", 
             "-funroll-loops"
         ], 
         "extra_link_args": [

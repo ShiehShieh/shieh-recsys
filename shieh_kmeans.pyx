@@ -4,14 +4,20 @@
 
 import time
 import math
+import cython
 import argparse
 import numpy as np
 from sklearn.metrics.pairwise import pairwise_distances
 from shieh_utils import *
+cimport numpy as np
 
 
 VERSION = 'v4.0.0'
 USAGE = '''usage: %(prog)s [options] arg1 arg2'''
+
+
+DTYPE = np.float
+ctypedef np.float_t DTYPE_t
 
 
 def get_args():
@@ -45,7 +51,7 @@ def get_args():
     return parser.parse_args()
 
 
-def init_kmeans(X, k):
+cdef init_kmeans(X, k):
     """TODO: Docstring for init_kmeans.
     :returns: TODO
 
@@ -55,11 +61,14 @@ def init_kmeans(X, k):
     return C
 
 
-def update_C(X, Y, C):
+cdef update_C(X, Y, C):
     """TODO: Docstring for update_C.
     :returns: TODO
 
     """
+    cdef:
+        Py_ssize_t idx
+
     for idx in range(C.shape[0]):
         points = X[Y==idx,:]
         if points.shape[0] == 0:
@@ -68,10 +77,11 @@ def update_C(X, Y, C):
         centroid_coords = [math.fsum(d_list)/points.shape[0]
                            for d_list in unzipped]
         C[idx] = centroid_coords
+
     return C
 
 
-def update_Cx(X, Y, C):
+cdef update_Cx(X, Y, C):
     """TODO: Docstring for update_Cx.
 
     :X: TODO
@@ -80,6 +90,9 @@ def update_Cx(X, Y, C):
     :returns: TODO
 
     """
+    cdef:
+        Py_ssize_t idx
+
     if Y is None:
         Y = np.empty(X.shape[0])
     for idx in range(X.shape[0]):
@@ -88,12 +101,15 @@ def update_Cx(X, Y, C):
     return Y
 
 
-def cost_func(X, Y, C):
+cdef cost_func(X, Y, C):
     """TODO: Docstring for cost_func.
     :returns: TODO
 
     """
-    cost = 0
+    cdef:
+        double cost = 0
+        Py_ssize_t idx
+
     for idx in range(C.shape[0]):
         points = X[Y==idx,:]
         if points.shape[0] == 0:
@@ -107,6 +123,9 @@ def kmeans(X, k, max_iter=100):
     :returns: TODO
 
     """
+    cdef:
+        Py_ssize_t idx
+
     C = init_kmeans(X, k)
     Y = update_Cx(X, None, C)
     print 'initial cost: %f' % (cost_func(X, Y, C))
