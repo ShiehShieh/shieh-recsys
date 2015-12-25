@@ -179,8 +179,11 @@ def neighborhood_pred(X, user, item, k, Mu, item2item=True,
     indices, sims = get_sims(X, user, item, k, item2item, reduced)
     multi_items = X[:,indices]
     # TODO items dot sims = item
-    if scheme == 'regression':
+    if scheme == 'regression' and item2item:
         clf = LinearRegression()
+        # for idx in range(indices.shape[0]):
+        #     clf.fit(X[:,item].reshape(X.shape[0],1), multi_items[:,idx])
+        #     multi_items[:,idx] = clf.predict(X[:,item].reshape(X.shape[0],1))
         clf.fit(multi_items, X[:,item])
         sims = clf.coef_
 
