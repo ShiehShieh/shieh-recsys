@@ -265,13 +265,6 @@ def user_bias_t(rates, t, tu, gamma, Mu, user_mean, time_mean):
     bu = user_mean - Mu
     tmp = np.exp(-gamma*np.abs((t-tu).astype('timedelta64[D]').values))
     devu = np.sum(tmp*btls)/np.sum(tmp)
-    # print 't:', t
-    # print 'tu:', tu
-    # print 't-tu:', t-tu
-    # print 'btls:', btls
-    # print 'bu:', bu
-    # print 'tmp:', tmp
-    # print 'devu:', devu
     return (bu + devu + 0)/2.0
 
 

@@ -49,6 +49,7 @@ def dim_reduction_svd(X, d=None, v=None, combineit=True):
     U, Sigma, Vh = svd(X)
 
     sum_ = 0
+    idx = Sigma.shape[0]
     summation = np.sum(Sigma)
     if v:
         for i in range(Sigma.shape[0]):

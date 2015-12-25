@@ -691,12 +691,12 @@ typedef npy_longdouble __pyx_t_5numpy_longdouble_t;
 
 /* "shieh_kmeans.pyx":20
  * 
- * DTYPE = np.float
- * ctypedef np.float_t DTYPE_t             # <<<<<<<<<<<<<<
+ * DTYPE = np.int
+ * ctypedef np.int_t DTYPE_t             # <<<<<<<<<<<<<<
  * 
  * 
  */
-typedef __pyx_t_5numpy_float_t __pyx_t_12shieh_kmeans_DTYPE_t;
+typedef __pyx_t_5numpy_int_t __pyx_t_12shieh_kmeans_DTYPE_t;
 #if CYTHON_CCOMPLEX
   #ifdef __cplusplus
     typedef ::std::complex< float > __pyx_t_float_complex;
@@ -1200,6 +1200,7 @@ static char __pyx_k__31[] = "_";
 static char __pyx_k_end[] = "end";
 static char __pyx_k_i_2[] = "i";
 static char __pyx_k_idx[] = "idx";
+static char __pyx_k_int[] = "int";
 static char __pyx_k_k_2[] = "k";
 static char __pyx_k_zip[] = "zip";
 static char __pyx_k_Plot[] = "Plot.";
@@ -1220,7 +1221,6 @@ static char __pyx_k_type[] = "type";
 static char __pyx_k_DTYPE[] = "DTYPE";
 static char __pyx_k_USAGE[] = "USAGE";
 static char __pyx_k_empty[] = "empty";
-static char __pyx_k_float[] = "float";
 static char __pyx_k_numpy[] = "numpy";
 static char __pyx_k_print[] = "print";
 static char __pyx_k_range[] = "range";
@@ -1331,7 +1331,6 @@ static PyObject *__pyx_n_s_empty;
 static PyObject *__pyx_n_s_end;
 static PyObject *__pyx_n_s_file;
 static PyObject *__pyx_kp_s_final_cost_f;
-static PyObject *__pyx_n_s_float;
 static PyObject *__pyx_kp_s_fn;
 static PyObject *__pyx_n_s_fn_2;
 static PyObject *__pyx_kp_s_forhomework;
@@ -1343,6 +1342,7 @@ static PyObject *__pyx_kp_s_i;
 static PyObject *__pyx_n_s_idx;
 static PyObject *__pyx_n_s_import;
 static PyObject *__pyx_kp_s_initial_cost_f;
+static PyObject *__pyx_n_s_int;
 static PyObject *__pyx_kp_s_iteration_d_cost_f;
 static PyObject *__pyx_kp_s_k;
 static PyObject *__pyx_n_s_k_2;
@@ -6253,7 +6253,6 @@ static __Pyx_StringTabEntry __pyx_string_tab[] = {
   {&__pyx_n_s_end, __pyx_k_end, sizeof(__pyx_k_end), 0, 0, 1, 1},
   {&__pyx_n_s_file, __pyx_k_file, sizeof(__pyx_k_file), 0, 0, 1, 1},
   {&__pyx_kp_s_final_cost_f, __pyx_k_final_cost_f, sizeof(__pyx_k_final_cost_f), 0, 0, 1, 0},
-  {&__pyx_n_s_float, __pyx_k_float, sizeof(__pyx_k_float), 0, 0, 1, 1},
   {&__pyx_kp_s_fn, __pyx_k_fn, sizeof(__pyx_k_fn), 0, 0, 1, 0},
   {&__pyx_n_s_fn_2, __pyx_k_fn_2, sizeof(__pyx_k_fn_2), 0, 0, 1, 1},
   {&__pyx_kp_s_forhomework, __pyx_k_forhomework, sizeof(__pyx_k_forhomework), 0, 0, 1, 0},
@@ -6265,6 +6264,7 @@ static __Pyx_StringTabEntry __pyx_string_tab[] = {
   {&__pyx_n_s_idx, __pyx_k_idx, sizeof(__pyx_k_idx), 0, 0, 1, 1},
   {&__pyx_n_s_import, __pyx_k_import, sizeof(__pyx_k_import), 0, 0, 1, 1},
   {&__pyx_kp_s_initial_cost_f, __pyx_k_initial_cost_f, sizeof(__pyx_k_initial_cost_f), 0, 0, 1, 0},
+  {&__pyx_n_s_int, __pyx_k_int, sizeof(__pyx_k_int), 0, 0, 1, 1},
   {&__pyx_kp_s_iteration_d_cost_f, __pyx_k_iteration_d_cost_f, sizeof(__pyx_k_iteration_d_cost_f), 0, 0, 1, 0},
   {&__pyx_kp_s_k, __pyx_k_k, sizeof(__pyx_k_k), 0, 0, 1, 0},
   {&__pyx_n_s_k_2, __pyx_k_k_2, sizeof(__pyx_k_k_2), 0, 0, 1, 1},
@@ -6859,13 +6859,13 @@ PyMODINIT_FUNC PyInit_shieh_kmeans(void)
   /* "shieh_kmeans.pyx":19
  * 
  * 
- * DTYPE = np.float             # <<<<<<<<<<<<<<
- * ctypedef np.float_t DTYPE_t
+ * DTYPE = np.int             # <<<<<<<<<<<<<<
+ * ctypedef np.int_t DTYPE_t
  * 
  */
   __pyx_t_1 = __Pyx_GetModuleGlobalName(__pyx_n_s_np); if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 19; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_1);
-  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_float); if (unlikely(!__pyx_t_2)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 19; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+  __pyx_t_2 = __Pyx_PyObject_GetAttrStr(__pyx_t_1, __pyx_n_s_int); if (unlikely(!__pyx_t_2)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 19; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_2);
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   if (PyDict_SetItem(__pyx_d, __pyx_n_s_DTYPE, __pyx_t_2) < 0) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 19; __pyx_clineno = __LINE__; goto __pyx_L1_error;}

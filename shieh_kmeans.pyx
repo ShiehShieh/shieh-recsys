@@ -16,8 +16,8 @@ VERSION = 'v4.0.0'
 USAGE = '''usage: %(prog)s [options] arg1 arg2'''
 
 
-DTYPE = np.float
-ctypedef np.float_t DTYPE_t
+DTYPE = np.int
+ctypedef np.int_t DTYPE_t
 
 
 def get_args():
