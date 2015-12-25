@@ -3,6 +3,7 @@
 *.pyc
 *.zip
 *.so
+*.c
 python-recsys/
 recommender/
 build/
