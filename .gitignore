@@ -9,4 +9,4 @@ recommender/
 build/
 report/
 .DS_Store
-*.pdf
+final.pdf
