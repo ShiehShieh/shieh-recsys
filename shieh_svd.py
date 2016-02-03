@@ -50,22 +50,24 @@ def dim_reduction_svd(X, d=None, v=None, combineit=True):
 
     sum_ = 0
     idx = Sigma.shape[0]
-    summation = np.sum(Sigma)
+    summation = np.sum(Sigma ** 2)
     if v:
         for i in range(Sigma.shape[0]):
-            sum_ += Sigma[i]
+            sum_ += Sigma[i] ** 2
             if sum_/summation >= v:
                 idx = i
                 break
     elif d:
         for i in range(d):
-            sum_ += Sigma[i]
+            sum_ += Sigma[i] ** 2
         idx = d
     else:
         return X
 
-    reduced = np.dot(U[:,:idx], np.diag(Sigma[:idx]))
-    reconstructed = np.dot(reduced, Vh[:idx,:])
+    print 'retained dimension: %d' % (idx + 1)
+
+    reduced = np.dot(U[:,:idx+1], np.diag(Sigma[:idx+1]))
+    reconstructed = np.dot(reduced, Vh[:idx+1,:])
     ratio = sum_/summation
 
     if combineit:

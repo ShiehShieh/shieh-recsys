@@ -3,19 +3,16 @@
 
 
 import time
-import heapq
 import argparse
-import operator
 import numpy as np
 from math import sqrt
 from datetime import datetime
-from scipy.stats import pearsonr
 from scipy.spatial.distance import cosine
 from sklearn.metrics import mean_squared_error
 from sklearn.linear_model import LinearRegression
-from shieh_kmeans import kmeans
 from shieh_svd import dim_reduction_svd
-from shieh_utils import transform_data, load_data, impute, normalize, find_bin
+from shieh_kmeans import fill_origin, cluster_useritem
+from shieh_utils import *
 
 
 VERSION = 'v4.0.0'
@@ -67,36 +64,6 @@ def get_args():
     return parser.parse_args()
 
 
-def check_range(res, minv=1, maxv=5):
-    """TODO: Docstring for check_range.
-    :returns: TODO
-
-    """
-    if res > maxv:
-        res = maxv
-    elif res < minv:
-        res = minv
-    return res
-
-
-def cal_sim(a, b, c, ref):
-    """TODO: Docstring for cal_sim.
-    :returns: TODO
-
-    """
-    if c[ref] == 0:
-        return 0
-
-    a = a / np.sum(a[a!=0], dtype=np.float)
-    b = b / np.sum(b[b!=0], dtype=np.float)
-    res = pearsonr(a, b)[0]
-
-    # a or b is zeros.
-    if np.isnan(res):
-        return 0
-
-    return res
-
 
 def cal_rmse(y_actual, y_pred):
     """TODO: Docstring for cal_rmse.
@@ -105,41 +72,6 @@ def cal_rmse(y_actual, y_pred):
     """
     rmse = sqrt(mean_squared_error(y_actual, y_pred))
     return rmse
-
-
-def get_sims(X, user, item, k, item2item=True, reduced=None):
-    """TODO: Docstring for get_sims.
-    :returns: TODO
-
-    """
-    # TODO itself
-    if reduced is not None:
-        comp = reduced
-    else:
-        comp = X
-
-    if item2item:
-        a = comp[:,item]
-        X = X.T
-        comp = comp.T
-        ref = user
-    else:
-        a = comp[user,:]
-        ref = item
-
-    tar = enumerate([cal_sim(a, comp[idx,:], X[idx,:], ref)
-                     for idx in range(X.shape[0])])
-    neighbors = zip(*heapq.nlargest(k, tar, key=operator.itemgetter(1)))
-
-    return np.array(neighbors[0]), np.array(neighbors[1])
-
-
-def get_wgts(user, item, X, k, item2item=True):
-    """TODO: Docstring for get_wgts.
-    :returns: TODO
-
-    """
-    pass
 
 
 def baseline_pred(X, user, item, Mu, **kargs):
@@ -177,7 +109,10 @@ def neighborhood_pred(X, user, item, k, Mu, item2item=True,
         return check_range(user_mean)
 
     indices, sims = get_sims(X, user, item, k, item2item, reduced)
-    multi_items = X[:,indices]
+
+    if item2item:
+        multi_items = X[:,indices]
+
     # TODO items dot sims = item
     if scheme == 'regression' and item2item:
         clf = LinearRegression()
@@ -196,50 +131,6 @@ def neighborhood_pred(X, user, item, k, Mu, item2item=True,
                                   Mu))/np.sum(sims)
     else:
         res = np.sum(sims*X[indices, item])/np.sum(sims)
-
-    return check_range(res)
-
-
-def cluster_useritem(X, k_x, k_y):
-    """TODO: Docstring for cluster_useritem.
-    :returns: TODO
-
-    """
-    X, Y_x, C_x = kmeans(X, k_x, 6)
-    _, Y_y, C_y = kmeans(X.T, k_y, 6)
-
-    C_C = np.zeros((k_x, k_y), dtype=np.float)
-
-    for i in range(k_x):
-        for j in range(k_y):
-            entries = X[Y_x==i,:][:,Y_y==j]
-            nonzeros = entries[entries!=0]
-            if nonzeros.shape[0] != 0:
-                C_C[i,j] = np.mean(nonzeros)
-
-    return C_C, Y_x, Y_y
-
-
-def kmeans_pred(C_C, user, item, Y_x, Y_y, cfk, item2item, **kargs):
-    """TODO: Docstring for kmeans_estimator.
-    :returns: TODO
-
-    """
-    Y_user = Y_x[user]
-    Y_item = Y_y[item]
-    res = C_C[Y_user, Y_item]
-
-    if res == 0:
-        indices, sims = get_sims(C_C, Y_user, Y_item, cfk, item2item, None)
-        if item2item:
-            multi_items = C_C[:,indices]
-            res = np.sum(sims*(np.average(multi_items, axis=0,
-                                          weights=multi_items.astype(bool))))/np.sum(sims)
-        else:
-            multi_users = C_C[indices,:]
-            res = np.sum(sims*(np.average(multi_users, axis=1,
-                                          weights=multi_users.astype(bool))))/np.sum(sims)
-        # C_C[Y_user, Y_item] = res
 
     return check_range(res)
 
@@ -308,7 +199,9 @@ def testing(X_train, X_test, func, **kargs):
     :returns: TODO
 
     """
-    num_sample = 2000
+    # num_sample = 2000
+    num_sample = 1000
+    # num_sample = X_test.shape[0]
     # subset = X_test[np.random.randint(X_test.shape[0],size=num_sample),:]
     subset = X_test[range(0, X_test.shape[0], X_test.shape[0]/num_sample),:]
 
@@ -317,6 +210,7 @@ def testing(X_train, X_test, func, **kargs):
     y_true = np.empty((num_sample,1))
     y_pred = np.empty((num_sample,1))
 
+    start = time.time()
     for idx in range(num_sample):
         if idx % 100 == 0:
             print 'Processing sample: %d' % (idx)
@@ -324,6 +218,7 @@ def testing(X_train, X_test, func, **kargs):
         t = datetime.fromtimestamp(rate[3]).date()
         y_true[idx] = rate[2]
         y_pred[idx] = func(X_train, int(rate[0]-1), int(rate[1]-1), t=t, **kargs)
+    print 'recsys time: %f samples / 1s' % (num_sample/(time.time() - start))
 
     print 'RMSE: %f' % (cal_rmse(y_true, y_pred))
 
@@ -347,18 +242,28 @@ def svd_wrapper(d, v, alg, svd, item2item, X):
         svd1 = us
         svd2 = sv
     elif svd:
+        densed = impute(X)
+        normalized = normalize(densed, True)
         if item2item:
-            Uk, Sk, Vk, ratio = dim_reduction_svd(X.T, d, v, False)
+            Uk, Sk, Vk, ratio = dim_reduction_svd(normalized.T, d, v, False)
             root_Sk = np.sqrt(Sk)
             us = np.dot(Uk, root_Sk)
             svd1 = us.T
         else:
-            Uk, Sk, Vk, ratio = dim_reduction_svd(X, d, v, False)
+            Uk, Sk, Vk, ratio = dim_reduction_svd(normalized, d, v, False)
             root_Sk = np.sqrt(Sk)
             us = np.dot(Uk, root_Sk)
             svd1 = us
 
     return svd1, svd2, ratio
+
+
+def get_entry(X, i, j, **kargs):
+    """TODO: Docstring for get_entry.
+    :returns: TODO
+
+    """
+    return X[i,j]
 
 
 def baseline_env(X_train, X_test, rating, Bins, args):
@@ -424,10 +329,15 @@ def kmeans_env(X_train, X_test, rating, Bins, args):
     :returns: TODO
 
     """
+    Mu = np.mean(X_train[X_train!=0])
+    svd1, svd2, ratio = svd_wrapper(args.d, args.v, args.alg, args.svd,
+                                    args.item2item, X_train)
     C_C, Y_x, Y_y = cluster_useritem(X_train, args.k_x, args.k_y)
+    fill_origin(X_train, C_C, Y_x, Y_y, args.cfk, args.item2item)
     if args.testit:
-        testing(C_C, X_test, kmeans_pred, Y_x=Y_x, Y_y=Y_y,
-                cfk=args.cfk, item2item=args.item2item)
+        # testing(X_train, X_test, get_entry)
+        testing(X_train, X_test, neighborhood_pred, k=args.cfk, Mu=Mu,
+                item2item=args.item2item, scheme=args.scheme, reduced=svd1)
 
 
 def main():
@@ -447,7 +357,6 @@ def main():
 
     print X_train.shape, X_test.shape
 
-    start = time.time()
     if args.alg== 'baseline':
         baseline_env(X_train, X_test, rating, Bins, args)
     elif args.alg== 'neighborhood':
@@ -461,7 +370,6 @@ def main():
     else:
         print 'Unsupported algorithm: %s' % (args.alg)
         exit(0)
-    print 'recsys time: %f' % (time.time() - start)
 
 
 if __name__ == "__main__":

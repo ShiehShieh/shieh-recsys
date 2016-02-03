@@ -2,11 +2,14 @@
 # -*- coding: utf-8 -*-
 
 
+import heapq
 import cython
+import operator
 import numpy as np
 import pandas as pd
 import matplotlib.cm as cm
 import matplotlib.pyplot as plt
+from scipy.stats import pearsonr
 from datetime import datetime
 from sklearn.manifold import Isomap
 from sklearn.decomposition import PCA
@@ -27,6 +30,20 @@ def load_data(fn, ftype):
                'users': ['UserID', 'Gender', 'Age', 'Occupation', 'Zip-code']}
     res = pd.read_csv(fn, sep='::', header=None,
                       names=headers[ftype], engine='python')
+    return res
+
+
+def check_range(res, minv=1, maxv=5):
+    """TODO: Docstring for check_range.
+    :returns: TODO
+
+    """
+    if res > maxv:
+        res = maxv
+    elif res < minv:
+        res = minv
+    elif np.isnan(res) or np.isinf(res):
+        res = 3
     return res
 
 
@@ -155,6 +172,52 @@ def transform_data(moviesf, ratingf, usersf, splitit=False, numbin=0):
         Bins = None
 
     return X_train, X_test, rating, Bins
+
+
+def cal_sim(a, b, c, ref):
+    """TODO: Docstring for cal_sim.
+    :returns: TODO
+
+    """
+    if c[ref] == 0 or c[ref] % 1 != 0:
+        return 0
+
+    a = a / np.sum(a[a!=0], dtype=np.float)
+    b = b / np.sum(b[b!=0], dtype=np.float)
+    res = pearsonr(a, b)[0]
+
+    # a or b is zeros.
+    if np.isnan(res):
+        return 0
+
+    return res
+
+
+def get_sims(X, user, item, k, item2item=True, reduced=None):
+    """TODO: Docstring for get_sims.
+    :returns: TODO
+
+    """
+    # TODO itself
+    if reduced is not None:
+        comp = reduced
+    else:
+        comp = X
+
+    if item2item:
+        a = comp[:,item]
+        X = X.T
+        comp = comp.T
+        ref = user
+    else:
+        a = comp[user,:]
+        ref = item
+
+    tar = enumerate([cal_sim(a, comp[idx,:], X[idx,:], ref)
+                     for idx in range(X.shape[0])])
+    neighbors = zip(*heapq.nlargest(k, tar, key=operator.itemgetter(1)))
+
+    return np.array(neighbors[0]), np.array(neighbors[1])
 
 
 def plot_2d(X, Y, C):

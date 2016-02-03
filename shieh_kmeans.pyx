@@ -16,8 +16,8 @@ VERSION = 'v4.0.0'
 USAGE = '''usage: %(prog)s [options] arg1 arg2'''
 
 
-DTYPE = np.int
-ctypedef np.int_t DTYPE_t
+DTYPE = np.float
+ctypedef np.float_t DTYPE_t
 
 
 def get_args():
@@ -151,6 +151,69 @@ def plot_kmeans(X, Y, C, ndim):
         plot_2d(X, Y, C)
     elif ndim == 3:
         plot_3d(X, Y, C)
+
+
+def cluster_useritem(X, k_x, k_y):
+    """TODO: Docstring for cluster_useritem.
+    :returns: TODO
+
+    """
+    X, Y_x, C_x = kmeans(X, k_x, 6)
+    _, Y_y, C_y = kmeans(X.T, k_y, 6)
+
+    C_C = np.zeros((k_x, k_y), dtype=np.float)
+
+    for i in range(k_x):
+        for j in range(k_y):
+            entries = X[Y_x==i,:][:,Y_y==j]
+            nonzeros = entries[entries!=0]
+            if nonzeros.shape[0] != 0:
+                C_C[i,j] = np.mean(nonzeros)
+
+    return C_C, Y_x.astype(np.int), Y_y.astype(np.int)
+
+
+def kmeans_pred(np.ndarray[DTYPE_t, ndim=2] C_C, int user, int item,
+                Y_x, Y_y, cfk, item2item, **kargs):
+    """TODO: Docstring for kmeans_estimator.
+    :returns: TODO
+
+    """
+    cdef:
+        Py_ssize_t Y_user = Y_x[user]
+        Py_ssize_t Y_item = Y_y[item]
+        double res = C_C[Y_user, Y_item]
+
+    if res == 0:
+        indices, sims = get_sims(C_C, Y_user, Y_item, cfk, item2item, None)
+        if item2item:
+            multi_items = C_C[:,indices]
+            res = np.sum(sims*(np.average(multi_items, axis=0,
+                                          weights=multi_items.astype(bool))))/np.sum(sims)
+        else:
+            multi_users = C_C[indices,:]
+            res = np.sum(sims*(np.average(multi_users, axis=1,
+                                          weights=multi_users.astype(bool))))/np.sum(sims)
+        # C_C[Y_user, Y_item] = res
+
+    return check_range(res)
+
+
+def fill_origin(np.ndarray[DTYPE_t, ndim=2] X, C_C, Y_x, Y_y, cfk, item2item):
+    """TODO: Docstring for fill_origin.
+    :returns: TODO
+
+    """
+    cdef:
+        Py_ssize_t i, j
+
+    print 'total: %d' % (X.shape[0])
+    for i in range(X.shape[0]):
+        if i % 100 == 0:
+            print 'filling row: %d' % (i)
+        for j in range(X.shape[1]):
+            if X[i,j] == 0:
+                X[i,j] = kmeans_pred(C_C, i, j, Y_x, Y_y, cfk, item2item)
 
 
 def main():
